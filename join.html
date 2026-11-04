@@ -1,0 +1,66 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Big+Shoulders+Display:wght@800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><title>Join | FIFA Campus Cup</title></head><body>
+<nav class="nav"><a class="brand" href="/" data-title>FIFA Campus Cup</a>
+<ul><li><a class="link " href="/">Home</a></li><li><a class="link " href="/bracket">Bracket</a></li><li><a class="link active" href="/join">Join</a></li></ul></nav>
+<main class="page">
+  <h1>Join</h1>
+  <p class="lead">Enter the code you were given. Each code works once.</p>
+
+  <section class="panel" id="s1">
+    <label for="code">Your code</label>
+    <input type="text" id="code" placeholder="FIFA-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <div class="row"><button class="btn" id="check">Check code</button></div>
+    <div id="m1"></div>
+  </section>
+
+  <section class="panel hidden" id="s2">
+    <h2>Choose your name</h2>
+    <p style="margin:0">This is how you will appear in the bracket. Taken names are gone from the list.</p>
+    <div class="names" id="names"></div>
+    <div class="row"><button class="btn" id="lock" disabled>Lock in my name</button></div>
+    <div id="m2"></div>
+  </section>
+
+  <section class="panel hidden" id="s3">
+    <h2>You're in.</h2>
+    <p style="font-size:1.4rem;margin:0 0 16px">Your player name: <b id="me"></b></p>
+    <p style="margin:0 0 20px">You'll show up in the bracket as soon as the draw happens.</p>
+    <a class="btn" href="/bracket">See the bracket</a>
+  </section>
+</main>
+<script src="/shared.js"></script>
+<script>
+let code='',picked='';
+const show=id=>['s1','s2','s3'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id));
+const msg=(id,t,cls)=>$(id).innerHTML=t?'<div class="msg '+cls+'">'+esc(t)+'</div>':'';
+
+$('#check').onclick=async()=>{
+  msg('#m1','');
+  code=$('#code').value;
+  $('#check').disabled=true;
+  try{
+    const r=await api('/api/join',{code});
+    $('#names').innerHTML=r.available.map(n=>'<button type="button" aria-pressed="false">'+esc(n)+'</button>').join('');
+    $('#names').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      $('#names').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
+      b.setAttribute('aria-pressed','true'); picked=b.textContent; $('#lock').disabled=false;
+    });
+    show('s2');
+  }catch(e){ msg('#m1',e.message,'err'); }
+  $('#check').disabled=false;
+};
+$('#code').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#check').click(); });
+
+$('#lock').onclick=async()=>{
+  msg('#m2','');
+  $('#lock').disabled=true;
+  try{
+    const r=await api('/api/join',{code,name:picked});
+    $('#me').textContent=r.name; show('s3');
+  }catch(e){
+    msg('#m2',e.message,'err');
+    // refresh the list in case the name was taken
+    try{ const r=await api('/api/join',{code}); $('#names').innerHTML=r.available.map(n=>'<button type="button" aria-pressed="false">'+esc(n)+'</button>').join(''); picked=''; $('#names').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#names').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');picked=b.textContent;$('#lock').disabled=false;}); }catch(_){}
+  }
+};
+</script>
+</body></html>

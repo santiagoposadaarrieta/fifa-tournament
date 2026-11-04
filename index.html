@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Big+Shoulders+Display:wght@800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><title>FIFA Campus Cup</title></head><body>
+<nav class="nav"><a class="brand" href="/" data-title>FIFA Campus Cup</a>
+<ul><li><a class="link active" href="/">Home</a></li><li><a class="link " href="/bracket">Bracket</a></li><li><a class="link " href="/join">Join</a></li></ul></nav>
+<header class="hero">
+  <div class="circle" aria-hidden="true"><div class="num">32</div></div>
+  <div class="copy">
+    <h1>Thirty-two players. One bracket. One winner.</h1>
+    <p>The school FIFA tournament is open. Join with your code, pick your name, and find out who you play when the draw goes live.</p>
+    <div class="actions"><a class="btn" href="/join">Join with your code</a><a class="btn ghost" href="/bracket">See the bracket</a></div>
+    <p class="spots"><b id="spots">–</b> of 32 spots taken</p>
+  </div>
+</header>
+<section class="paths">
+  <a href="/join"><h2>Join</h2><p>Enter the code you were given and choose your player name.</p></a>
+  <a href="/bracket"><h2>Bracket</h2><p>See every match from the Round of 32 to the Final.</p></a>
+  <a href="/bracket"><h2>The draw</h2><p>Matchups are drawn at random, live. Names appear in the bracket right after.</p></a>
+</section>
+<footer>Draw night: to be announced. Questions? Ask the organizer.</footer>
+<script src="/shared.js"></script>
+<script>api('/api/state').then(s=>{$('#spots').textContent=s.players.length}).catch(()=>{})</script>
+</body></html>

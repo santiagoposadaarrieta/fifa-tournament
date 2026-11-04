@@ -1,0 +1,29 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Big+Shoulders+Display:wght@800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><title>Bracket | FIFA Campus Cup</title></head><body>
+<nav class="nav"><a class="brand" href="/" data-title>FIFA Campus Cup</a>
+<ul><li><a class="link " href="/">Home</a></li><li><a class="link active" href="/bracket">Bracket</a></li><li><a class="link " href="/join">Join</a></li></ul></nav>
+<main class="page wide">
+  <h1>Bracket</h1>
+  <p class="lead" id="status">Loading…</p>
+  <div id="champ"></div>
+  <div class="scroll"><div class="bracket" id="bracket"></div></div>
+  <div id="poolWrap" class="hidden"><h2 style="font-size:2rem;margin-top:24px">Players in the pool</h2><div class="chips" id="pool"></div></div>
+</main>
+<script src="/shared.js"></script>
+<script>
+async function load(){
+  try{
+    const s=await api('/api/state');
+    renderBracket($('#bracket'),s.bracket);
+    const c=champion(s.bracket);
+    $('#champ').innerHTML=c?'<div class="champion">Champion: '+esc(c)+'</div>':'';
+    if(s.bracket){ $('#status').textContent='The draw is done. Winners move on automatically as results come in.'; $('#poolWrap').classList.add('hidden'); }
+    else{
+      $('#status').textContent=s.players.length+' of 32 players are in. The bracket fills the moment the draw happens.';
+      $('#poolWrap').classList.remove('hidden');
+      $('#pool').innerHTML=s.players.map(p=>'<span class="chip">'+esc(p)+'</span>').join('')||'<span>No one yet.</span>';
+    }
+  }catch(e){ $('#status').textContent=e.message; renderBracket($('#bracket'),null); }
+}
+load(); setInterval(load,10000);
+</script>
+</body></html>

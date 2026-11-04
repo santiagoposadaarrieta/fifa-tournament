@@ -1,0 +1,118 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Big+Shoulders+Display:wght@800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><title>Admin | FIFA Campus Cup</title><meta name="robots" content="noindex"></head><body>
+<nav class="nav"><a class="brand" href="/">FIFA Campus Cup</a><span>Admin</span></nav>
+<main class="page wide">
+  <section class="panel" id="login">
+    <h2>Admin password</h2>
+    <input type="password" id="pw" autocomplete="current-password">
+    <div class="row"><button class="btn" id="go">Enter</button></div>
+    <div id="m0"></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <h1 style="font-size:4rem">Control room</h1>
+    <div id="msg"></div>
+    <h2 style="font-size:2.2rem;margin-top:24px">Pool: <span id="count">0</span> of 32</h2>
+    <div class="chips" id="pool"></div>
+
+    <div class="row" style="align-items:center">
+      <button class="btn" id="draw">Run the draw</button>
+      <label style="margin:0;display:flex;gap:8px;align-items:center"><input type="checkbox" id="byes"> Allow byes (draw with 17 to 31 players)</label>
+    </div>
+    <p style="margin:12px 0 28px">The draw is saved the moment you click, then plays as a reveal on screen. Project this page for the event. After the draw, click a player's name to mark them as the winner of that match (click again to undo).</p>
+
+    <div class="scroll admin-on"><div class="bracket" id="bracket"></div></div>
+
+    <h2 style="font-size:2.2rem;margin-top:40px">Codes</h2>
+    <p id="codeNote" style="margin:0 0 12px"></p>
+    <div class="chips" id="codes"></div>
+    <div class="row" id="codeTools">
+      <button class="btn ghost small" id="copyCodes">Copy unused codes</button>
+      <button class="btn ghost small" id="dlCodes">Download all codes</button>
+    </div>
+
+    <div class="row" style="margin-top:40px">
+      <button class="btn ghost small" id="resetDraw">Redo the draw</button>
+      <button class="btn danger small" id="resetAll">Restart everything (new codes)</button>
+    </div>
+    <p style="margin:12px 0 0;max-width:40em">Restart everything deletes the draw, all players and all used codes, and creates 32 new codes. The old codes stop working immediately.</p>
+  </div>
+</main>
+<div class="stage hidden" id="stage"><button class="btn ghost small skip" id="skip">Skip</button><div><div class="match-no" id="mno"></div><div class="vs"><span id="pa"></span><i>vs</i><span id="pb"></span></div></div></div>
+<script src="/shared.js"></script>
+<script>
+let pw=sessionStorage.getItem('pw')||'', state=null, skipping=false, busy=false;
+const msg=(t,cls)=>$('#msg').innerHTML=t?'<div class="msg '+cls+'">'+esc(t)+'</div>':'';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+function paint(){
+  $('#count').textContent=state.players.length;
+  $('#pool').innerHTML=state.players.map(p=>'<span class="chip">'+esc(p)+(state.bracket?'':'<button title="Release this player" data-p="'+esc(p)+'">×</button>')+'</span>').join('')||'<span>No one yet.</span>';
+  $('#pool').querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(confirm('Release '+b.dataset.p+'? Their name and code become free again.')) act({action:'release',name:b.dataset.p}); });
+  renderBracket($('#bracket'),state.bracket,(r,m,n)=>act({action:'winner',round:r,match:m,name:n}));
+  $('#draw').disabled=!!state.bracket;
+  paintCodes();
+}
+
+function paintCodes(){
+  const c=state.codes;
+  $('#codeTools').classList.toggle('hidden',!c);
+  if(!c){ $('#codes').innerHTML=''; $('#codeNote').textContent='You are on the original 32 codes from your file. Restart everything to generate new ones that you can view and copy here.'; return; }
+  const free=c.filter(x=>!x.used).length;
+  $('#codeNote').textContent=free+' of '+c.length+' codes unused. Used codes are crossed out.';
+  $('#codes').innerHTML=c.map(x=>'<span class="chip" style="'+(x.used?'text-decoration:line-through;opacity:.5':'')+'">'+esc(x.code)+'</span>').join('');
+}
+const codeList=only=>state.codes.filter(x=>!only||!x.used).map(x=>x.code).join('\n');
+$('#copyCodes').onclick=async()=>{ try{ await navigator.clipboard.writeText(codeList(true)); msg('Copied '+state.codes.filter(x=>!x.used).length+' unused codes.','ok'); }catch(e){ msg('Could not copy. Use Download instead.','err'); } };
+$('#dlCodes').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([codeList(false)+'\n'],{type:'text/plain'})); a.download='codes.txt'; a.click(); };
+
+async function act(body){
+  if(busy) return; busy=true; msg('');
+  try{ state=await api('/api/admin',{password:pw,...body}); paint(); return state; }
+  catch(e){ msg(e.message,'err'); }
+  finally{ busy=false; }
+}
+
+async function login(){
+  pw=$('#pw').value||pw;
+  try{
+    state=await api('/api/admin',{password:pw,action:'list'});
+    sessionStorage.setItem('pw',pw);
+    $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); paint();
+  }catch(e){ $('#m0').innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; }
+}
+$('#go').onclick=login;
+$('#pw').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
+if(pw) login();
+
+$('#draw').onclick=async()=>{
+  const old=state.bracket;
+  const s=await act({action:'draw',allowByes:$('#byes').checked});
+  if(s&&s.bracket&&!old) await reveal(s.bracket.rounds[0],s.players);
+};
+
+async function reveal(matches,pool){
+  const st=$('#stage'); st.classList.remove('hidden'); skipping=false;
+  $('#skip').onclick=()=>{skipping=true};
+  const spin=async(el,final)=>{
+    const t=Date.now();
+    while(!skipping&&Date.now()-t<1100){ el.textContent=pool[Math.floor(Math.random()*pool.length)]; await sleep(70); }
+    el.textContent=final;
+  };
+  for(let i=0;i<matches.length&&!skipping;i++){
+    const m=matches[i];
+    $('#mno').textContent='Match '+(i+1)+' of 16';
+    $('#pa').textContent=''; $('#pb').textContent='';
+    await spin($('#pa'),m.a);
+    if(m.b) await spin($('#pb'),m.b); else $('#pb').textContent='Bye';
+    if(!skipping) await sleep(1200);
+  }
+  st.classList.add('hidden');
+}
+
+$('#resetDraw').onclick=()=>{ if(confirm('Delete the current draw and bracket? Players stay in the pool.')) act({action:'reset-draw'}); };
+$('#resetAll').onclick=async()=>{
+  const t=prompt('This deletes the draw, all players and all codes, and creates 32 new codes. Type RESTART to confirm.');
+  if(t&&t.trim().toUpperCase()==='RESTART'){ await act({action:'reset-all'}); msg('Restarted. New codes are listed below.','ok'); }
+};
+</script>
+</body></html>
